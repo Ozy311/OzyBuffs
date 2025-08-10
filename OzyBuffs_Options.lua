@@ -170,6 +170,16 @@ local function OpenOptions()
     OzyBuffs_SetDB(db)
   end)
 
+  -- Global enable/disable
+  local globalEnable = makeCheckButton("OZYB_GlobalEnable", "Enable OzyBuffs (global)", content)
+  globalEnable:SetPoint("LEFT", perChar, "RIGHT", 220, 0)
+  globalEnable:SetChecked(db.globalEnabled ~= false)
+  globalEnable.tooltipText = "Master toggle. If disabled, OzyBuffs won't say anything."
+  globalEnable:SetScript("OnClick", function(self)
+    db.globalEnabled = self:GetChecked() and true or false
+    OzyBuffs_SetDB(db)
+  end)
+
   -- Channel
   local chanLabel = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   chanLabel:SetPoint("TOPLEFT", perChar, "BOTTOMLEFT", 0, -16)
@@ -223,6 +233,8 @@ local function OpenOptions()
   skipNPCs:SetScript("OnClick", function(self) db.restrictions.skipNPCs = self:GetChecked() and true or false; OzyBuffs_SetDB(db) end)
   skipNPCs.tooltipText = "Ignore buffs cast on NPCs; only quip on players."
 
+  -- (moved per-spell enable/disable block to below humor toggles)
+
   -- Humor toggles
   local humorTitle = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   humorTitle:SetPoint("TOPLEFT", skipNPCs, "BOTTOMLEFT", 0, -16)
@@ -265,9 +277,55 @@ local function OpenOptions()
     OzyBuffs_SetDB(db); OzyBuffs_ResetBags()
   end)
 
+  -- Per-spell enable/disable (placed after humor toggles)
+  local spellsTitle = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  spellsTitle:SetPoint("TOPLEFT", hSpicy, "BOTTOMLEFT", 0, -16)
+  spellsTitle:SetText("Enabled spells (speaking)")
+
+  local grid = CreateFrame("Frame", nil, content)
+  grid:SetPoint("TOPLEFT", spellsTitle, "BOTTOMLEFT", 0, -6)
+  grid:SetSize(520, 56)
+
+  local function addSpellToggle(col, row, text, key)
+    local cb = makeCheckButton("OZYB_SpellToggle_" .. key, text, grid)
+    local x = (col - 1) * 260
+    local y = -((row - 1) * 24)
+    cb:SetPoint("TOPLEFT", x, y)
+    if db.buffsEnabled[text] == nil then db.buffsEnabled[text] = true end
+    cb:SetChecked(db.buffsEnabled[text] ~= false)
+    cb.tooltipText = "If unchecked, OzyBuffs will not say a line when you cast " .. text .. "."
+    cb:SetScript("OnClick", function(self)
+      db.buffsEnabled[text] = self:GetChecked() and true or false
+      OzyBuffs_SetDB(db)
+    end)
+    return cb
+  end
+
+  do
+    local _, class = UnitClass("player")
+    local list = {}
+    if class == "MAGE" then
+      list = {"Arcane Intellect", "Arcane Brilliance", "Amplify Magic", "Dampen Magic"}
+    elseif class == "PRIEST" then
+      list = {"Power Word: Fortitude", "Prayer of Fortitude", "Divine Spirit", "Prayer of Spirit", "Shadow Protection", "Prayer of Shadow Protection"}
+    end
+    local col, row = 1, 1
+    for i, name in ipairs(list) do
+      addSpellToggle(col, row, name, i)
+      if col == 1 then col = 2 else col = 1; row = row + 1 end
+    end
+    local totalRows = (col == 2) and row or (row - 1)
+    grid:SetSize(520, totalRows * 24 + 8)
+  end
+
   -- Phrases editor per buff
   local buffLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  buffLabel:SetPoint("TOPLEFT", hSpicy, "BOTTOMLEFT", 0, -16)
+  -- Place just below the per-spell grid if present, otherwise below humor
+  if grid then
+    buffLabel:SetPoint("TOPLEFT", grid, "BOTTOMLEFT", 0, -16)
+  else
+    buffLabel:SetPoint("TOPLEFT", hSpicy, "BOTTOMLEFT", 0, -16)
+  end
   buffLabel:SetText("Edit phrases for buff")
   local buffDD = makeDropdown("OZYB_BuffDD", content, 200)
   buffDD:SetPoint("TOPLEFT", buffLabel, "BOTTOMLEFT", -10, -4)

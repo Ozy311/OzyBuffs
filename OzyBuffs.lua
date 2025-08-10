@@ -16,6 +16,7 @@ local PHRASE_FORMAT_VERSION = 1
 local DEFAULTS = {
   profile = {
     usePerCharacter = false,
+    globalEnabled = true,
     channel = "AUTO", -- AUTO|SAY|PARTY|RAID|YELL|EMOTE
     restrictions = {
       disableInCities = false,
@@ -285,7 +286,8 @@ local function resolveSpellFromInput(input)
 end
 
 local function postSaying(profile, spellName, targetName)
-  if not targetName then targetName = UnitName("target") or UnitName("player") end
+  -- Require a real friendly target; do not fallback to self when no one is targeted
+  if not targetName or targetName == "" then return end
   local targetFull = targetName
   if not canSay(profile, targetFull) then return end
   local phrase = nextPhrase(profile, spellName)
@@ -370,6 +372,7 @@ end
 
 function OzyBuffs:OnSpellSucceeded(unit, castGUID, spellID)
   local profile = getDB()
+  if profile.globalEnabled == false then return end
   if unit ~= "player" then return end
   local spellName = GetSpellInfo(spellID)
   if not spellName then return end
@@ -378,9 +381,26 @@ function OzyBuffs:OnSpellSucceeded(unit, castGUID, spellID)
   local tracked = false
   for _, n in ipairs(list) do if n == spellName then tracked = true break end end
   if not tracked then return end
+  -- Respect per-spell enable/disable (default is enabled)
+  if profile.buffsEnabled and profile.buffsEnabled[spellName] == false then return end
   local key = castGUID or spellID
-  local targetName = sentTargets[key] or UnitName("target") or UnitName("player")
+  local playerName = UnitName("player")
+  -- Prefer actual friendly units to avoid speaking when nobody is targeted
+  local targetName
+  if UnitExists("target") and UnitCanCooperate("player", "target") then
+    targetName = UnitName("target")
+  elseif UnitExists("mouseover") and UnitCanCooperate("player", "mouseover") then
+    targetName = UnitName("mouseover")
+  else
+    local mapped = sentTargets[key]
+    if mapped and mapped ~= playerName then
+      targetName = mapped
+    end
+  end
   sentTargets[key] = nil
+  if not targetName or targetName == playerName then return end
+  -- Respect skip self option
+  if profile.restrictions and profile.restrictions.skipSelf and targetName == playerName then return end
   postSaying(profile, spellName, targetName)
 end
 
