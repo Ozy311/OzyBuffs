@@ -1,0 +1,14 @@
+## Interface: 11404
+## Title: OzyBuffs
+## Notes: Auto-quip on buff cast for Mage & Priest; configurable sayings
+## Author: Ozy
+## Version: 1.0.0
+## SavedVariables: OzyBuffsDB
+
+OzyBuffs.lua
+OzyBuffs_UserPhrases.lua
+OzyBuffs_MagePhrases.lua
+OzyBuffs_PriestPhrases.lua
+OzyBuffs_Options.lua
+
+
